@@ -7,18 +7,21 @@
 
 import SpriteKit
 import GameplayKit
+import AVFoundation
 
 class GameScene: SKScene {
     
     var gameTimer: Timer?
     var fireworks = [SKNode]()
-
+    
     let leftEdge = -22
     let bottomEdge = -22
     let rightEdge = 1024 + 22
     
     var fireworksCount = 0
-
+    var isGameOver = false
+    var audioPlayer: AVAudioPlayer?
+    
     var scoreLabel: SKLabelNode!
     var score = 0 {
         didSet {
@@ -28,13 +31,15 @@ class GameScene: SKScene {
     
     override func didMove(to view: SKView) {
         
+        playBackgroundMusic(named: "backgroundMusic.mp3")
+        
         let background = SKSpriteNode(imageNamed: "background")
-            background.position = CGPoint(x: 512, y: 384)
-            background.blendMode = .replace
-            background.zPosition = -1
-            addChild(background)
-
-            gameTimer = Timer.scheduledTimer(timeInterval: 6, target: self, selector: #selector(launchFireworks), userInfo: nil, repeats: true)
+        background.position = CGPoint(x: 512, y: 384)
+        background.blendMode = .replace
+        background.zPosition = -1
+        addChild(background)
+        
+        gameTimer = Timer.scheduledTimer(timeInterval: 6, target: self, selector: #selector(launchFireworks), userInfo: nil, repeats: true)
         
         scoreLabel = SKLabelNode(fontNamed: "Chalkduster")
         scoreLabel.horizontalAlignmentMode = .left
@@ -48,59 +53,60 @@ class GameScene: SKScene {
         // 1
         let node = SKNode()
         node.position = CGPoint(x: x, y: y)
-
+        
         // 2
         let firework = SKSpriteNode(imageNamed: "rocket")
         firework.colorBlendFactor = 1
         firework.name = "firework"
         node.addChild(firework)
-
+        
         // 3
         switch Int.random(in: 0...2) {
         case 0:
             firework.color = .cyan
-
+            
         case 1:
             firework.color = .green
-
+            
         case 2:
             firework.color = .red
-
+            
         default:
             break
         }
-
+        
         // 4
         let path = UIBezierPath()
         path.move(to: .zero)
         path.addLine(to: CGPoint(x: xMovement, y: 1000))
-
+        
         // 5
         let move = SKAction.follow(path.cgPath, asOffset: true, orientToPath: true, speed: 200)
         node.run(move)
-
+        
         // 6
         if let emitter = SKEmitterNode(fileNamed: "fuse") {
             emitter.position = CGPoint(x: 0, y: -22)
             node.addChild(emitter)
         }
-
+        
         // 7
         fireworks.append(node)
         addChild(node)
     }
-   
+    
     @objc func launchFireworks() {
         let movementAmount: CGFloat = 1800
         
         fireworksCount += 1
         print("fireworksCount --- \(fireworksCount)")
         
-        if fireworksCount == 3 {
+        if fireworksCount == 10 {
             gameTimer?.invalidate()
-           gemeover()
+            gemeover()
+            return
         }
-
+        
         switch Int.random(in: 0...3) {
         case 0:
             // fire five, straight up
@@ -109,7 +115,7 @@ class GameScene: SKScene {
             createFirework(xMovement: 0, x: 512 - 100, y: bottomEdge)
             createFirework(xMovement: 0, x: 512 + 100, y: bottomEdge)
             createFirework(xMovement: 0, x: 512 + 200, y: bottomEdge)
-
+            
         case 1:
             // fire five, in a fan
             createFirework(xMovement: 0, x: 512, y: bottomEdge)
@@ -117,7 +123,7 @@ class GameScene: SKScene {
             createFirework(xMovement: -100, x: 512 - 100, y: bottomEdge)
             createFirework(xMovement: 100, x: 512 + 100, y: bottomEdge)
             createFirework(xMovement: 200, x: 512 + 200, y: bottomEdge)
-
+            
         case 2:
             // fire five, from the left to the right
             createFirework(xMovement: movementAmount, x: leftEdge, y: bottomEdge + 400)
@@ -125,7 +131,7 @@ class GameScene: SKScene {
             createFirework(xMovement: movementAmount, x: leftEdge, y: bottomEdge + 200)
             createFirework(xMovement: movementAmount, x: leftEdge, y: bottomEdge + 100)
             createFirework(xMovement: movementAmount, x: leftEdge, y: bottomEdge)
-
+            
         case 3:
             // fire five, from the right to the left
             createFirework(xMovement: -movementAmount, x: rightEdge, y: bottomEdge + 400)
@@ -133,7 +139,7 @@ class GameScene: SKScene {
             createFirework(xMovement: -movementAmount, x: rightEdge, y: bottomEdge + 200)
             createFirework(xMovement: -movementAmount, x: rightEdge, y: bottomEdge + 100)
             createFirework(xMovement: -movementAmount, x: rightEdge, y: bottomEdge)
-
+            
         default:
             break
         }
@@ -141,19 +147,21 @@ class GameScene: SKScene {
     
     func checkTouches(_ touches: Set<UITouch>) {
         guard let touch = touches.first else { return }
-
+        
         let location = touch.location(in: self)
         let nodesAtPoint = nodes(at: location)
-
+        
         for case let node as SKSpriteNode in nodesAtPoint {
             guard node.name == "firework" else { continue }
+            run(SKAction.playSoundFileNamed("firework.mp3", waitForCompletion: false))
             
             for parent in fireworks {
                 guard let firework = parent.children.first as? SKSpriteNode else { continue }
-
+                
                 if firework.name == "selected" && firework.color != node.color {
                     firework.name = "firework"
                     firework.colorBlendFactor = 1
+                    
                 }
             }
             
@@ -174,16 +182,20 @@ class GameScene: SKScene {
             if let _ = hitNodes.first {
                 // Перезапускаем игру, если нажата кнопка
                 restartGame()
+                // стоп музыка
+                func stopBackgroundMusic() {
+                    audioPlayer?.stop()
+                }
             }
         }
         checkTouches(touches)
     }
-
+    
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesMoved(touches, with: event)
         checkTouches(touches)
     }
-
+    
     override func update(_ currentTime: TimeInterval) {
         for (index, firework) in fireworks.enumerated().reversed() {
             if firework.position.y > 900 {
@@ -200,22 +212,22 @@ class GameScene: SKScene {
             addChild(emitter)
             
             // Последовательность действий
-                   let wait = SKAction.wait(forDuration: 2.0) // Время на завершение эффекта
-                   let remove = SKAction.removeFromParent()
-                   let sequence = SKAction.sequence([wait, remove])
-                   
-                   emitter.run(sequence) // Запуск последовательности на излучателе
+            let wait = SKAction.wait(forDuration: 2.0) // Время на завершение эффекта
+            let remove = SKAction.removeFromParent()
+            let sequence = SKAction.sequence([wait, remove])
+            
+            emitter.run(sequence) // Запуск последовательности на излучателе
         }
-
+        
         firework.removeFromParent()
     }
     
     func explodeFireworks() {
         var numExploded = 0
-
+        
         for (index, fireworkContainer) in fireworks.enumerated().reversed() {
             guard let firework = fireworkContainer.children.first as? SKSpriteNode else { continue }
-
+            
             if firework.name == "selected" {
                 // destroy this firework!
                 explode(firework: fireworkContainer)
@@ -223,7 +235,7 @@ class GameScene: SKScene {
                 numExploded += 1
             }
         }
-
+        
         switch numExploded {
         case 0:
             // nothing – rubbish!
@@ -242,7 +254,8 @@ class GameScene: SKScene {
     }
     
     func gemeover() {
-
+        
+        isGameOver = true
         run(SKAction.playSoundFileNamed("Ha-Ha.m4a", waitForCompletion: false))
         
         // Создаем узел для отображения текста "Game Over"
@@ -343,9 +356,28 @@ class GameScene: SKScene {
         // Создаем новую сцену
         let newScene = GameScene(size: self.size)
         newScene.scaleMode = self.scaleMode
-
+        
         // Переход на новую сцену с анимацией (опционально)
         let transition = SKTransition.fade(withDuration: 1.0)
         self.view?.presentScene(newScene, transition: transition)
+        // запуск музыки
+//        func resumeBackgroundMusic() {
+//            audioPlayer?.play()
+//        }
+    }
+    
+    func playBackgroundMusic(named filename: String) {
+        guard let url = Bundle.main.url(forResource: filename, withExtension: nil) else {
+            print("Файл \(filename) не найден в проекте.")
+            return
+        }
+        
+        do {
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.numberOfLoops = -1 // Бесконечное воспроизведение
+            audioPlayer?.play()
+        } catch {
+            print("Не удалось воспроизвести музыку: \(error.localizedDescription)")
+        }
     }
 }
