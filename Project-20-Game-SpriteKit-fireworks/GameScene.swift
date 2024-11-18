@@ -153,7 +153,6 @@ class GameScene: SKScene {
         
         for case let node as SKSpriteNode in nodesAtPoint {
             guard node.name == "firework" else { continue }
-            run(SKAction.playSoundFileNamed("firework.mp3", waitForCompletion: false))
             
             for parent in fireworks {
                 guard let firework = parent.children.first as? SKSpriteNode else { continue }
@@ -210,6 +209,7 @@ class GameScene: SKScene {
         if let emitter = SKEmitterNode(fileNamed: "explode") {
             emitter.position = firework.position
             addChild(emitter)
+            run(SKAction.playSoundFileNamed("firework.mp3", waitForCompletion: false))
             
             // Последовательность действий
             let wait = SKAction.wait(forDuration: 2.0) // Время на завершение эффекта
